@@ -12,13 +12,13 @@ Requires:
 Run make to compile.
 
 Usage:
- erdosSum q k B p
+ erdosSum q k N p
 
         q = size of the finite field
         k - upper and lower bounds for the sum will be computed for each j<= k
-        B - The exact value of the sum will be computed over all polynomials whose irreducible factors
+        N - The exact value of the sum will be computed over all polynomials whose irreducible factors
                 have degree at most B, and then the tails will be estimated for the contribtion from 
-                degrees greater than B
+                degrees greater than B (Must be even)
         p = precision in bits to use when performing the floating point arithmetic.
 
 Outputs upper and lower bounds for each of the computed sums, with one more digit of precision than the difference between the computed upper and lower bounds.   
