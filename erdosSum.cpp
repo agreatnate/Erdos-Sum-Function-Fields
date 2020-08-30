@@ -4,57 +4,12 @@
 #include <gmpxx.h>  //Used for large integer/rational classes
 #include <mpfr.h>   //Used for correct-rounding high-precision floats
 #include "MordellSum.h"
+#include "numberTheory.h"
 
 using std::cout;
 using std::cerr;
 using std::endl;
 using std::string;
-
-
-// Returns value of mobius(n)
-int mobius(int n){
-    if (n==1) return 1;
-    int p = 0;   //Counts the number of distinct prime factors of n
-    // Treat 2 separately
-    if (n%2 == 0) {
-        n = n/2;
-        p++;
-        if (n % 2 == 0)
-           return 0;
-    }
-    // Check for all other prime factors
-    for (int i = 3; i <= n; i = i+2)     {
-        // If i divides n
-        if (n%i == 0)  {
-            n = n/i;
-            p++;
-            // If i^2 also divides N
-            if (n % i == 0)
-               return 0;
-        }
-    }
-    if(p % 2 == 0) return 1;
-    else return -1;
-}
-
-
-mpz_class pi_q(int q, int i) {
-   //Returns the exact number of irreducible polynomials of degree i over F_q
-   mpz_class res(0);
-   for (int j=1;j<=sqrt(i);j++){
-      if (i%j==0){
-         mpz_class r;
-         mpz_ui_pow_ui (r.get_mpz_t(), q, j);
-         res+=r*mobius(i/j);
-         if (i/j!=j){
-             mpz_ui_pow_ui (r.get_mpz_t(), q, i/j);
-             res+=r*mobius(j);
-         }
-      }
-   }
-   return res/i;
-}
-
 
 
 
@@ -231,29 +186,3 @@ void erdosKsum(int q, int k, int N, int prec) {
 
 
 
-int main (int argc, char *argv[]){
-    if(argc != 5){
-      cout<<"This program will compute upper and lower bounds for the value of the sum of 1/(deg(f)*q^(deg(f))"<<endl;
-      cout<<"\t ranging over all polynomials f with coeffecients in the finite field F_q having a fixed number (j)"<<endl<<"\t of irreducible factors."<<endl;
-      cout<<"Syntax:"<<endl;
-      cout<<'\t'<<"erdosSum q k N p"<<endl<<endl;
-      cout<<'\t'<<"q = size of the finite field"<<endl;
-      cout<<'\t'<<"k - upper and lower bounds for the sum will be computed for each j<= k"<<endl;
-      cout<<'\t'<<"N - The exact value of the sum will be computed over all polynomials whose irreducible factors"<<endl<<"\t\thave degree at most N, and then the tails will be estimated for the contribtion from "<<endl<<"\t\tdegrees greater than N (N must be even)"<<endl;
-      cout<<'\t'<<"p = precision in bits to use when performing the floating point arithmetic."<<endl;
-      return 0;
-    }
-    int q=atoi(argv[1]); //size of Finite Field to consider
-    int k=atoi(argv[2]); //maximum degree to consider
-    int N=atoi(argv[3]); //Bound size of irreducibles to precompute
-    int p=atoi(argv[4]); //precision in bytes
-    if (N%2==1){
-       cerr<<"Only implemented for even values of N."<<endl;
-       return 1;
-    }
-
-//    cout<<N<<'\t'<<k<<'\t'<<q<<'\t'<<MordellSum(N,k,q)<<endl;
-    erdosKsum(q,k,N,p);
-
-    return 0;
-}
