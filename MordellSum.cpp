@@ -1,14 +1,19 @@
+#include "MordellSum.h"
 #include <gmpxx.h>  //Used for large integer/rational classes
-#include <mpfr.h>   //Used for correct-rounding high-precision floats
+//#include <mpfr.h>   //Used for correct-rounding high-precision floats
+
+#define IS_ODD(n) (n % 2)
+
+//MordellSum Constructor
+MordellSum::MordellSum(int r, int N, int prec) : myPrecision(prec){
+  InitializeMScache(r, N);
+}
 
 
-void MordellSum(mpfr_t retv, int n, int r,int c,bool up,int prec,mpfr_t ***MScacheU, mpfr_t ***MScacheL);
-
-
-void initializeMScache(int r, int N, int prec,mpfr_t ***&MScacheU,mpfr_t ***&MScacheL){
+void MordellSum::InitializeMScache(const int r, const int N){
                                                  //Initialize tables of entries of Cached values of Mordell Sums
                                                  //These are stored in MSCachU and MSCacheL respectively
-                                                 //Each entry is initialized with a precision of prec bytes and an initial value of 0
+                                                 //Each entry is initialized with myPrecision of bytes and an initial value of 0
     MScacheU = new mpfr_t**[r];
     MScacheL = new mpfr_t**[r];
     for (int i =0;i<r-1;i++){
@@ -19,9 +24,9 @@ void initializeMScache(int r, int N, int prec,mpfr_t ***&MScacheU,mpfr_t ***&MSc
         MScacheU[i][j]= new mpfr_t[l+1];
         MScacheL[i][j]= new mpfr_t[l+1];
         for(int k=0;k<l+1;k++){
-          mpfr_init2(MScacheU[i][j][k],prec);
+          mpfr_init2(MScacheU[i][j][k],myPrecision);
           mpfr_set_ui(MScacheU[i][j][k],0,MPFR_RNDU);
-          mpfr_init2(MScacheL[i][j][k],prec);
+          mpfr_init2(MScacheL[i][j][k],myPrecision);
           mpfr_set_ui(MScacheL[i][j][k],0,MPFR_RNDD);
         }
       }
@@ -32,9 +37,9 @@ void initializeMScache(int r, int N, int prec,mpfr_t ***&MScacheU,mpfr_t ***&MSc
     for(int j=0;j<N+1;j++){
       MScacheU[i][j]= new mpfr_t[1];
       MScacheL[i][j]= new mpfr_t[1];
-      mpfr_init2(MScacheU[i][j][0],prec);
+      mpfr_init2(MScacheU[i][j][0],myPrecision);
       mpfr_set_ui(MScacheU[i][j][0],0,MPFR_RNDU);
-      mpfr_init2(MScacheL[i][j][0],prec);
+      mpfr_init2(MScacheL[i][j][0],myPrecision);
       mpfr_set_ui(MScacheL[i][j][0],0,MPFR_RNDD);
     }
 }
@@ -47,17 +52,22 @@ void initializeMScache(int r, int N, int prec,mpfr_t ***&MScacheU,mpfr_t ***&MSc
 
 
 
-void MordellSum(mpfr_t retv, int n,int k,int c,bool up,int prec,mpfr_t ***MScacheU,mpfr_t ***MScacheL){
-    //Computes a bound (Upper/Lower depending on up) for
+void MordellSum::ComputeSum(mpfr_t retv, const int n, const int k, const int c, UpOrLowerBound upOrLower){
+
+    //Computes a bound (Upper/Lower depending on upOrLower) for
     //the value of sum_{n<=i_1,i_2,ldots i_k} 1/(i_1i_2 \cdots i_k(i_1+i_2+\cdots i_k +c))
     //This is the function M(k,n,c) appearing in the paper
 
     //Returned value is stored in retv
 
     mpfr_rnd_t  RoundDir;
-    if(up) RoundDir = MPFR_RNDU;
-    else RoundDir = MPFR_RNDD;
-    mpfr_init2(retv,prec);
+    if(upOrLower == Upper) {
+       RoundDir = MPFR_RNDU;
+    }
+    else {
+       RoundDir = MPFR_RNDD;
+    }
+    mpfr_init2(retv,myPrecision);
 
     mpz_class factk;                           //k factorial
     mpz_fac_ui(factk.get_mpz_t(),k);
@@ -71,7 +81,7 @@ void MordellSum(mpfr_t retv, int n,int k,int c,bool up,int prec,mpfr_t ***MScach
 
     if (mpfr_cmp_ui (MScacheU[k-1][n-1][c],0)>0) {             //If this is a nonzero value then it has already been computed
                                                                //In that case we just return the cached value
-        if(up){
+        if(upOrLower == Upper){
            mpfr_set(retv,MScacheU[k-1][n-1][c],MPFR_RNDU);
            return;
         }
@@ -85,9 +95,9 @@ void MordellSum(mpfr_t retv, int n,int k,int c,bool up,int prec,mpfr_t ***MScach
     if (c==0 && n==1){                                //The special case when c=0 and n=1 results in an
                                                       //infinite sum which must be treated separately
          mpfr_t z;
-         mpfr_init2(z,prec);
+         mpfr_init2(z,myPrecision);
 
-         //First do the calculuation, rounding up
+         //First do the calculation, rounding up
          mpfr_zeta_ui(z,k+1,MPFR_RNDU);
          mpfr_mul_z (z, z, factk.get_mpz_t(), MPFR_RNDU); //z=k!*zeta(k+1) (rounded up)
          mpfr_set(MScacheU[k-1][n-1][0],z,MPFR_RNDU);
@@ -111,7 +121,7 @@ void MordellSum(mpfr_t retv, int n,int k,int c,bool up,int prec,mpfr_t ***MScach
            mpq_class tmpq(1,tmpz);                                //tmpq = 1/(i+1)^(k+1)
            mpz_class binomz;
            int sign=1;
-           if(i%2==1) sign=-1;
+           if(IS_ODD(i)) sign=-1;
            mpz_bin_uiui (binomz.get_mpz_t(), c-1, i);             //binomz = (c-1 choose i)
            s+=sign*binomz*tmpq;
         }
@@ -122,10 +132,10 @@ void MordellSum(mpfr_t retv, int n,int k,int c,bool up,int prec,mpfr_t ***MScach
 
         // M(k,n,c) = \sum_{i=1}^k (k choose i) (-1)^i M(k-i,n-1,a+i(n-1)) / (n-1)^i
         mpfr_t su;  //upper bound of sum
-        mpfr_init2(su,prec);
+        mpfr_init2(su,myPrecision);
         mpfr_set_ui(su,0,MPFR_RNDU);
         mpfr_t sl;  //lower bound of sum
-        mpfr_init2(sl,prec);
+        mpfr_init2(sl,myPrecision);
         mpfr_set_ui(sl,0,MPFR_RNDD);
         for(int i=0;i<=k;i++){
            mpz_class tmpz(n-1);
@@ -135,24 +145,24 @@ void MordellSum(mpfr_t retv, int n,int k,int c,bool up,int prec,mpfr_t ***MScach
            mpz_bin_uiui (binomz.get_mpz_t(), k, i);
            tmpq*=binomz;
            mpfr_t temp;  //Used to store return value from MordellSum
-           mpfr_init2(temp,prec);
-           if(i%2==1){
+           mpfr_init2(temp,myPrecision);
+           if(IS_ODD(i)){
               //sign=-1;
-              MordellSum(temp,n-1,k-i,c+(n-1)*i,false,prec,MScacheU,MScacheL);  //First Round Down
+              ComputeSum(temp,n-1,k-i,c+(n-1)*i,Lower);       //First Round Down
               mpfr_mul_q(temp,temp,tmpq.get_mpq_t(),MPFR_RNDD);
-              mpfr_sub(su,su,temp,MPFR_RNDU);                 //+=(-1)*binomz*tmpq*MordellSum(n-1,k-i,c+(n-1)*i,false,prec);
-              MordellSum(temp,n-1,k-i,c+(n-1)*i,true,prec,MScacheU,MScacheL);   //Now Round Up
+              mpfr_sub(su,su,temp,MPFR_RNDU);                 //+=(-1)*binomz*tmpq*MordellSum(n-1,k-i,c+(n-1)*i,false,myPrecision);
+              ComputeSum(temp,n-1,k-i,c+(n-1)*i,Upper);       //Now Round Up
               mpfr_mul_q(temp,temp,tmpq.get_mpq_t(),MPFR_RNDU);
-              mpfr_sub(sl,sl,temp,MPFR_RNDD);                 //+=(-1)*binomz*tmpq*MordellSum(n-1,k-i,c+(n-1)*i,false,prec);
+              mpfr_sub(sl,sl,temp,MPFR_RNDD);                 //+=(-1)*binomz*tmpq*MordellSum(n-1,k-i,c+(n-1)*i,false,myPrecision);
            }
            else{
               //sign=1;
-              MordellSum(temp,n-1,k-i,c+(n-1)*i,true,prec,MScacheU,MScacheL);  //First Round Up
+              ComputeSum(temp,n-1,k-i,c+(n-1)*i,Upper);      //First Round Up
               mpfr_mul_q(temp,temp,tmpq.get_mpq_t(),MPFR_RNDU);
-              mpfr_add(su,su,temp,MPFR_RNDU);                //+=(-1)*binomz*tmpq*MordellSum(n-1,k-i,c+(n-1)*i,false,prec);
-              MordellSum(temp,n-1,k-i,c+(n-1)*i,false,prec,MScacheU,MScacheL); //Now Round Down
+              mpfr_add(su,su,temp,MPFR_RNDU);                //+=(-1)*binomz*tmpq*MordellSum(n-1,k-i,c+(n-1)*i,false,myPrecision);
+              ComputeSum(temp,n-1,k-i,c+(n-1)*i,Lower);      //Now Round Down
               mpfr_mul_q(temp,temp,tmpq.get_mpq_t(),MPFR_RNDD);
-              mpfr_add(sl,sl,temp,GMP_RNDD);                 //+=(-1)*binomz*tmpq*MordellSum(n-1,k-i,c+(n-1)*i,false,prec);
+              mpfr_add(sl,sl,temp,GMP_RNDD);                 //+=(-1)*binomz*tmpq*MordellSum(n-1,k-i,c+(n-1)*i,false,myPrecision);
            }
         }
         mpfr_set(MScacheU[k-1][n-1][c],su,MPFR_RNDU);  //Save off computed values for use later
@@ -160,7 +170,7 @@ void MordellSum(mpfr_t retv, int n,int k,int c,bool up,int prec,mpfr_t ***MScach
     }
 
     //Return requested value
-    if(up){  //Asked to return an upper bound
+    if(upOrLower = Upper){  //Asked to return an upper bound
        mpfr_set(retv,MScacheU[k-1][n-1][c],MPFR_RNDU);
        return;
     }
